@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: chronologicon-db
+    environment:
+      POSTGRES_DB: chronologicon_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Chronologicon Engine API
+  chronologicon-api:
+    build: .
+    container_name: chronologicon-engine
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: chronologicon_db
+      DB_USER: postgres
+      DB_PASSWORD: password
+      PORT: 3000
+      NODE_ENV: production
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
